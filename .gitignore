@@ -1,0 +1,19 @@
+# Ignore node_modules
+node_modules/
+retrieve/node_modules/
+
+# Next.js build outputs
+.next/
+retrieve/.next/
+retrieve/tsconfig.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environments (sensitive keys)
+.env
+.env.local
+.env.*.local
+retrieve/.env.local
+retrieve/.env.*.local
