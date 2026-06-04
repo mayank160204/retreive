@@ -2026,5 +2026,8 @@ This session implemented the core backend infrastructure, security hardening, an
 | `src/app/summary/page.tsx` | Completed | MODIFIED | Implement first-session Paywall lock triggering Stripe checkout for free tier. |
 | `src/app/profile/page.tsx` | Completed | MODIFIED | Connect the profile Upgrade button to trigger Stripe checkout. |
 | `.gitignore` | Completed | NEW | Create root-level gitignore to ignore build outputs and environment variables. |
+| Git Repo Setup | Completed | NEW | Initialized local git repository, committed all source code (52 files), and set remote origin to `https://github.com/mayank160204/retreive.git`. |
+| Git Repo All Files | Planned | NEW | Stage and commit all remaining documentation, assets, and design files to the repository. |
+
 
 
