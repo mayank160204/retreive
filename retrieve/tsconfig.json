@@ -55,6 +55,9 @@
   ],
   "exclude": [
     "node_modules",
+    ".next",
+    "out",
+    "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",

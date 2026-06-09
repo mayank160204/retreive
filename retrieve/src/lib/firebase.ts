@@ -37,7 +37,7 @@ export function isFirebaseConfigured(config: FirebaseConfig = buildFirebaseConfi
 }
 
 const firebaseConfig = buildFirebaseConfig();
-const firebaseEnabled = isFirebaseConfigured(firebaseConfig);
+export const firebaseEnabled = isFirebaseConfigured(firebaseConfig);
 
 export const app: FirebaseApp | null = firebaseEnabled ? initializeApp(firebaseConfig) : null;
 export const auth: Auth | null = app ? getAuth(app) : null;

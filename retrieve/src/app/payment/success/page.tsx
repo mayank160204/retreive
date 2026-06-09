@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [countdown, setCountdown] = useState(5);
   const [tierUpdated, setTierUpdated] = useState(false);
   const webhookFired = useRef(false);
@@ -29,9 +29,21 @@ function PaymentSuccessContent() {
         userId: user.id,
       }),
     })
-      .then(() => setTierUpdated(true))
-      .catch(() => setTierUpdated(true)); // Continue either way
-  }, [user?.id]);
+      .then(async () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('has_completed_session');
+        }
+        await refreshUser();
+        setTierUpdated(true);
+      })
+      .catch(async () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('has_completed_session');
+        }
+        await refreshUser();
+        setTierUpdated(true);
+      });
+  }, [user?.id, refreshUser]);
 
   // Countdown redirect to dashboard
   useEffect(() => {

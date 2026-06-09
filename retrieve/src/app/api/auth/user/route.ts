@@ -46,16 +46,22 @@ export async function GET(request: NextRequest) {
 
     const firebaseUser = users[0];
 
-    // Fetch Firestore user document
-    const { getUserDocument } = await import('@/lib/db');
-    const userDoc = await getUserDocument(firebaseUser.localId);
-
-    if (!userDoc) {
-      return NextResponse.json(
-        { error: 'User profile not found.' },
-        { status: 404 }
-      );
-    }
+    // Return default local User profile since Firestore is not used
+    const userDoc = {
+      id: firebaseUser.localId,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.displayName || 'User'}`,
+      created_at: new Date().toISOString(),
+      tier: 'free',
+      subscription_id: null,
+      subscription_status: null,
+      total_xp: 0,
+      level: 1,
+      current_streak: 0,
+      longest_streak: 0,
+      sessions_completed: 0,
+    };
 
     return NextResponse.json({ user: userDoc }, { status: 200 });
   } catch (error) {

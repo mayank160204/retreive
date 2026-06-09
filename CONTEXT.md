@@ -2015,7 +2015,6 @@ This session implemented the core backend infrastructure, security hardening, an
 | `src/app/providers.tsx` | MODIFIED | Offline queue initialization |
 | `.env.local` | MODIFIED | Cleaned up, correct variable names |
 | `.env.local.example` | MODIFIED | Fixed to use placeholder values only |
-
 ## Active Session Changes (June 4, 2026)
 
 | File | Status | Action | Purpose |
@@ -2029,5 +2028,27 @@ This session implemented the core backend infrastructure, security hardening, an
 | Git Repo Setup | Completed | NEW | Initialized local git repository, committed all source code (52 files), and set remote origin to `https://github.com/mayank160204/retreive.git`. |
 | Git Repo All Files | Planned | NEW | Stage and commit all remaining documentation, assets, and design files to the repository. |
 
+## Active Session Changes (June 6, 2026)
 
+| File | Status | Action | Purpose |
+|------|--------|--------|---------|
+| `src/app/reader/page.tsx` | Completed | MODIFIED | Replaced Deepgram websocket with Web Speech API fallback, resolved word skipping by implementing utterance-level cursor offsets (`resultStartCursorsRef`), migrated layouts to Stitch "Immersive Reader - Hybrid Premium" design, structured text by paragraph block-groups, and implemented Spotify-style scrolling behavior. |
+| `src/components/BottomNav.tsx` | Completed | MODIFIED | Configured bottom tab-bar center `+` button shortcut to trigger file input natively and process uploads immediately with a loading state, redirecting straight to the passage preview. Added free tier session completed upload checks. |
+| `src/lib/question-generator.ts` | Completed | NEW | Implemented client-side MCAT question generation. Supports pre-formulated concept question banks (Ischemia, enzyme kinetics, renal filtration, glycolysis) and falls back to dynamic sentence cloze questions. |
+| `src/app/quiz/page.tsx` | Completed | MODIFIED | Replaced static medicine questions with the dynamic, context-relevant question generator. |
+| `src/app/summary/page.tsx` | Completed | MODIFIED | Added close (x) and "Maybe Later" buttons to the summary paywall modal, and saved session completed state in localStorage on completion. |
+| `src/app/upload/page.tsx` | Completed | MODIFIED | Integrated free tier session limit check on mounting, locking the interface with the paywall modal if completed, and redirecting to the dashboard on dismissal. |
+| `src/lib/auth-context.tsx` | Completed | MODIFIED | Enabled real-time profile loading from Firestore inside onAuthStateChanged, and exported a `refreshUser()` method. |
 
+## Active Session Changes (June 6, 2026 - Session 2)
+
+| File | Status | Action | Purpose |
+|------|--------|--------|---------|
+| `src/app/landing-page.tsx` | Completed | MODIFIED | Replace arbitrary Tailwind color classes `bg-[#58cc02]` and `border-[#2b6c00]` with config-defined tokens `bg-accent-green` and `border-accent-green-hover` to fix the invisible buttons (Get Started for Free and Sign Up). Ensure "Sign Up" / "Sign In" buttons are correctly positioned and styled in the header. |
+| `src/app/globals.css` | Completed | MODIFIED | Migrate all CSS classes from `<style jsx>` in `landing-page.tsx` into `globals.css` to avoid potential Next.js hydration or client-side react crashes. |
+| `src/app/landing-page.tsx` | Completed | MODIFIED | Remove the `<style jsx>` block. |
+| `src/middleware.ts` | Completed | MODIFIED | Remove strict auth-only page redirection to prevent infinite redirect loops caused by client-side and middleware session cookie desync. |
+| `src/lib/auth-context.tsx` | Completed | MODIFIED | Revert email verification bypass (per user request) and make the Firestore document fetch non-blocking within the auth state listener to prevent the dashboard from getting stuck on the loading screen. |
+| `src/app/profile/page.tsx` | Completed | MODIFIED | Remove the 'FREE' tier badge, add a premium confirmation modal for sign-out, and update redirect to route to the landing page (`/`) on successful sign-out. |
+| public/assets/mascot_idle.png | Completed | OVERWRITTEN | Replace raccoon with prehistoric saber-toothed squirrel vector artwork (inspired by Scrat's big expressive eyes and saber teeth). |
+| public/assets/mascot_celebrating.png | Completed | OVERWRITTEN | Replace raccoon with prehistoric saber-toothed squirrel vector artwork (inspired by Scrat's big expressive eyes and saber teeth). |

@@ -1,42 +1,81 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useUserStats, useRecentSessions, useLeaderboard } from '@/lib/hooks';
+import { useUserStats, useLeaderboard } from '@/lib/hooks';
+import AppShell from '@/components/AppShell';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading: authLoading, signout } = useAuth();
-  
-  const { stats, loading: statsLoading } = useUserStats();
-  const { sessions, loading: sessionsLoading } = useRecentSessions(5);
+  const { user, loading: authLoading } = useAuth();
+  const { stats } = useUserStats();
   const { entries: leaderboard } = useLeaderboard('weekly', 5);
 
+  const mascotQuotes = [
+    "Squeak! I'm your MCAT guide! Tap me or hover over this card to see me lift up! Let's keep studying! 🌰",
+    "Did you know? Recall accuracy is key to crushing MCAT passage retrieval! 🧬",
+    "Squeak! A 7-day streak gives you a bonus multiplier on your sessions! 🔥",
+    "Keep reading! Every word counts toward reaching the Elite Strategist level! 📚",
+    "Acorns are great, but scoring 528 on the MCAT is even better! 🐿️",
+  ];
+
+  const [mascotQuote, setMascotQuote] = useState(mascotQuotes[0]);
+
+  const handleMascotClick = () => {
+    const currentIndex = mascotQuotes.indexOf(mascotQuote);
+    const nextIndex = (currentIndex + 1) % mascotQuotes.length;
+    setMascotQuote(mascotQuotes[nextIndex]);
+  };
+
+  // Combine real leaderboard entries with fallback ones for display
+  const combinedLeaderboard = [...leaderboard];
+  const fallbackLeaderboard = [
+    { displayName: 'Sarah M.', username: 'Sarah M.', weeklyXP: 450, points: 450 },
+    { displayName: 'Marcus K.', username: 'Marcus K.', weeklyXP: 320, points: 320 },
+    { displayName: 'Jessica T.', username: 'Jessica T.', weeklyXP: 280, points: 280 },
+    { displayName: 'Jordan R.', username: 'Jordan R.', weeklyXP: 180, points: 180 },
+  ];
+  
+  // Add fallback users if not present
+  fallbackLeaderboard.forEach(f => {
+    if (!combinedLeaderboard.some(e => e.displayName === f.displayName || e.username === f.username)) {
+      combinedLeaderboard.push(f);
+    }
+  });
+
+  // Ensure current user is on the display board
+  const hasUser = combinedLeaderboard.some(e => e.user_id === user?.id || e.displayName === stats?.displayName);
+  if (!hasUser && stats) {
+    combinedLeaderboard.push({
+      user_id: user?.id,
+      displayName: stats.displayName || stats.name || user?.name || 'You',
+      username: stats.displayName || stats.name || user?.name || 'You',
+      weeklyXP: stats.weeklyXP || 0,
+      points: stats.weeklyXP || 0
+    });
+  }
+
+  const displayLeaderboard = combinedLeaderboard
+    .sort((a, b) => (b.weeklyXP || b.points || 0) - (a.weeklyXP || a.points || 0))
+    .slice(0, 5);
+
+  // Verify authentication
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/signin');
     }
   }, [user, authLoading, router]);
 
-  const handleSignOut = async () => {
-    try {
-      await signout();
-      router.push('/');
-    } catch (err) {
-      console.error('Sign out failed:', err);
-    }
-  };
-
   if (authLoading || user === undefined) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
         <div className="text-center">
-          <svg className="w-12 h-12 animate-spin text-[#00D97D] mx-auto mb-4" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          <svg className="w-12 h-12 animate-spin text-[#58CC02] mx-auto mb-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="text-slate-400">Loading dashboard…</p>
+          <p className="text-[#5F6A59] font-bold">Loading dashboard…</p>
         </div>
       </div>
     );
@@ -45,177 +84,241 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-[#00D97D] selection:text-black">
-      {/* Top Header */}
-      <header className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00D97D] to-[#00A85C] flex items-center justify-center font-bold text-black text-sm">
-              R
-            </div>
-            <h1 className="text-xl font-bold tracking-tight">RETREIVE</h1>
-          </div>
-          <div className="flex items-center gap-6">
-            <nav className="hidden md:flex items-center gap-6 mr-4 text-sm font-bold text-slate-400">
-              <button onClick={() => router.push('/dashboard')} className="text-white hover:text-[#00D97D] transition-colors">Dashboard</button>
-              <button onClick={() => router.push('/leaderboard')} className="hover:text-[#00D97D] transition-colors">Leaderboard</button>
-              <button onClick={() => router.push('/badges')} className="hover:text-[#00D97D] transition-colors">Badges</button>
-              <button onClick={() => router.push('/profile')} className="hover:text-[#00D97D] transition-colors">Profile</button>
-            </nav>
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm">
-              <span className="text-[#FBB724]">🔥</span>
-              <span className="font-semibold">{stats?.current_streak || 0} Day Streak</span>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto p-6 py-12">
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <h2 className="text-4xl font-bold tracking-tight mb-2">
-              Welcome back, {user.name || user.email?.split('@')[0]}
-            </h2>
-            <p className="text-slate-400">Ready to crush another MCAT passage?</p>
-          </div>
-          
-          <button 
-            onClick={() => router.push('/upload')}
-            className="flex items-center gap-2 px-6 py-3 bg-[#00D97D] text-black rounded-full font-bold hover:bg-[#00e885] transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(0,217,125,0.3)]"
-          >
-            Open Simulator →
-          </button>
+    <AppShell>
+      {/* Welcome Hero */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white border-2 border-[#E5E5E5] rounded-2xl p-6 shadow-[0_4px_0_0_#E5E5E5]">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-[#1A1C1C] mb-1">
+            Welcome back, {user.name || user.email?.split('@')[0]}! 👋
+          </h2>
+          <p className="text-[#5F6A59] font-medium">Ready to master another MCAT passage today?</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Progress Column */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* Level Card */}
-            <section className="bg-[#111111] border border-white/10 rounded-3xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#00D97D] opacity-5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-              
-              <div className="flex items-center justify-between mb-8 relative z-10">
-                <div>
-                  <p className="text-sm font-bold tracking-widest text-slate-400 uppercase mb-1">Current Level</p>
-                  <h3 className="text-3xl font-bold">{stats?.levelTitle || 'Rookie'}</h3>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-400 mb-1">Total XP</p>
-                  <p className="text-2xl font-bold text-[#00D97D]">{stats?.total_xp?.toLocaleString() || 0} <span className="text-sm text-slate-500">XP</span></p>
-                </div>
+        <button
+          onClick={() => router.push('/upload')}
+          className="btn-3d px-6 py-4 bg-[#58CC02] border-b-4 border-[#2B6C00] text-white rounded-xl font-extrabold hover:bg-[#62e002] active:translate-y-1 active:border-b-0 transition-all text-center flex items-center justify-center gap-2 whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined font-bold">rocket_launch</span>
+          Start a Session
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Main Content (2 cols) */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* Level Progress Card */}
+          <section className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-6 shadow-[0_4px_0_0_#E5E5E5] relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#5F6A59] mb-0.5">Your Level</p>
+                <h3 className="text-2xl font-extrabold text-[#1A1C1C]">{stats?.levelTitle || 'Rookie'}</h3>
               </div>
-
-              {/* Progress Bar */}
-              <div className="relative z-10">
-                <div className="flex justify-between text-xs font-semibold text-slate-400 mb-2">
-                  <span>Level {stats?.levelInfo.currentLevel || 1}</span>
-                  <span>Level {(stats?.levelInfo.currentLevel || 1) + 1}</span>
-                </div>
-                <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#00D97D] to-[#4DBFFF] rounded-full transition-all duration-1000 ease-out relative"
-                    style={{ width: `${stats?.levelInfo.progressPercent || 0}%` }}
-                  >
-                    <div className="absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-r from-transparent to-white/30" />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 mt-3 text-center">
-                  {stats?.levelInfo.xpToNextLevel?.toLocaleString() || 0} XP needed to level up
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#5F6A59] mb-0.5">Total XP</p>
+                <p className="text-xl font-extrabold text-[#58CC02]">
+                  {stats?.total_xp?.toLocaleString() || 0} <span className="text-xs text-[#5F6A59]">XP</span>
                 </p>
               </div>
-            </section>
-
-            {/* Recent Sessions */}
-            <section>
-              <h3 className="text-xl font-bold mb-4 px-1">Recent Activity</h3>
-              <div className="bg-[#111111] border border-white/10 rounded-3xl overflow-hidden">
-                {sessionsLoading ? (
-                  <div className="p-8 text-center text-slate-500 animate-pulse">Loading sessions...</div>
-                ) : sessions.length === 0 ? (
-                  <div className="p-8 text-center text-slate-500">
-                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3 text-2xl">📚</div>
-                    <p>No study sessions yet.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-white/5">
-                    {sessions.map((session, i) => (
-                      <div key={i} className="p-4 px-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-semibold">{session.pdf_id === 'default' ? 'Demo Passage' : session.pdf_id}</span>
-                          <span className="text-xs text-slate-400">{session.completed_at ? new Date(session.completed_at).toLocaleDateString() : 'Unknown date'}</span>
-                        </div>
-                        <div className="text-right flex flex-col">
-                          <span className="text-[#00D97D] font-bold">+{session.xp_earned} XP</span>
-                          <span className="text-xs text-slate-400">{session.accuracy_percentage}% accuracy</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-8">
-            
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#111111] border border-white/10 rounded-2xl p-5 flex flex-col justify-center">
-                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Streak</span>
-                <span className="text-2xl font-bold flex items-center gap-2">
-                  <span className="text-[#FBB724]">🔥</span> {stats?.current_streak || 0}
-                </span>
-              </div>
-              <div className="bg-[#111111] border border-white/10 rounded-2xl p-5 flex flex-col justify-center">
-                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Tier</span>
-                <span className="text-2xl font-bold flex items-center gap-2 capitalize">
-                  {stats?.tier === 'unlimited' ? <span className="text-[#4DBFFF]">⚡</span> : null}
-                  {stats?.tier || 'Free'}
-                </span>
-              </div>
             </div>
 
-            {/* Leaderboard Snippet */}
-            <section className="bg-[#111111] border border-white/10 rounded-3xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold">Weekly Top 5</h3>
-                <span className="text-xs px-2 py-1 bg-white/5 text-slate-400 rounded-md">Live</span>
+            <div>
+              <div className="flex justify-between text-xs font-bold text-[#5F6A59] mb-1">
+                <span>Level {stats?.levelInfo?.currentLevel || 1}</span>
+                <span>Level {(stats?.levelInfo?.currentLevel || 1) + 1}</span>
               </div>
-              
-              <div className="space-y-3">
-                {leaderboard.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-4">No entries yet this week</p>
-                ) : (
-                  leaderboard.map((entry: any, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className={`w-6 text-center font-bold text-sm ${i === 0 ? 'text-[#FBB724]' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-orange-400' : 'text-slate-600'}`}>
-                        {i + 1}
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0" />
-                      <div className="flex-1 truncate text-sm font-medium">
-                        {entry.username || 'Anonymous'}
-                      </div>
-                      <div className="text-sm font-bold text-[#00D97D]">
-                        {entry.weekly_xp?.toLocaleString()}
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="h-4 w-full bg-[#E5E5E5] rounded-full overflow-hidden border border-[#E5E5E5]">
+                <div
+                  className="h-full bg-[#58CC02] rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${stats?.levelInfo?.progressPercent || 0}%` }}
+                />
               </div>
-            </section>
-            
+              <p className="text-xs font-bold text-[#5F6A59] mt-2 text-center">
+                {stats?.levelInfo?.xpToNextLevel?.toLocaleString() || 0} XP needed to level up
+              </p>
+            </div>
+          </section>
+
+          {/* Quick Stats Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-4 shadow-[0_4px_0_0_#E5E5E5] text-center">
+              <span className="text-2xl">🔥</span>
+              <p className="text-xs font-bold text-[#5F6A59] uppercase tracking-wider mt-1">Streak</p>
+              <p className="text-xl font-extrabold text-[#755B00] mt-0.5">{stats?.current_streak || 0} Days</p>
+            </div>
+
+            <div className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-4 shadow-[0_4px_0_0_#E5E5E5] text-center">
+              <span className="text-2xl">📚</span>
+              <p className="text-xs font-bold text-[#5F6A59] uppercase tracking-wider mt-1">Sessions</p>
+              <p className="text-xl font-extrabold text-[#1A1C1C] mt-0.5">{stats?.sessions_completed || 0}</p>
+            </div>
+
+            <div className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-4 shadow-[0_4px_0_0_#E5E5E5] text-center">
+              <span className="text-2xl">🎯</span>
+              <p className="text-xs font-bold text-[#5F6A59] uppercase tracking-wider mt-1">Accuracy</p>
+              <p className="text-xl font-extrabold text-[#58CC02] mt-0.5">{stats?.average_accuracy || 0}%</p>
+            </div>
+
+            <div className={`border-2 rounded-2xl p-4 text-center transition-all ${
+              stats?.tier === 'unlimited' 
+                ? 'bg-[#E0F5FF] border-[#88ceff] shadow-[0_4px_0_0_#88ceff]' 
+                : 'bg-white border-[#E5E5E5] shadow-[0_4px_0_0_#E5E5E5]'
+            }`}>
+              <span className="text-2xl">{stats?.tier === 'unlimited' ? '👑' : '⚡'}</span>
+              <p className="text-xs font-bold text-[#5F6A59] uppercase tracking-wider mt-1">Tier</p>
+              <p className={`text-xl font-extrabold mt-0.5 capitalize ${
+                stats?.tier === 'unlimited' ? 'text-[#006590]' : 'text-[#755B00]'
+              }`}>
+                {stats?.tier || 'Free'}
+              </p>
+            </div>
           </div>
+
+          {/* How to Use Card */}
+          <section className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-6 shadow-[0_4px_0_0_#E5E5E5]">
+            <h3 className="text-xl font-extrabold text-[#1A1C1C] mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#58CC02]">menu_book</span>
+              How It Works
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { icon: 'upload_file', step: '1', title: 'Upload a PDF', desc: 'Upload any MCAT passage, textbook chapter, or article.' },
+                { icon: 'record_voice_over', step: '2', title: 'Read Aloud', desc: 'Read each passage aloud while the app tracks your accuracy.' },
+                { icon: 'quiz', step: '3', title: 'Answer MCQs', desc: 'Test your comprehension with AI-generated questions.' },
+              ].map((item) => (
+                <div key={item.step} className="flex flex-col items-center text-center p-4 bg-[#FAFAF9] border-2 border-[#E5E5E5] rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-[#58CC02] border-b-2 border-[#2B6C00] flex items-center justify-center mb-3">
+                    <span className="material-symbols-outlined text-white text-lg font-bold">{item.icon}</span>
+                  </div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#5F6A59] mb-1">Step {item.step}</p>
+                  <h4 className="font-extrabold text-sm text-[#1A1C1C] mb-1">{item.title}</h4>
+                  <p className="text-xs font-semibold text-[#5F6A59]">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-      </main>
-    </div>
+
+        {/* Right Sidebar (1 col) */}
+        <div className="space-y-6">
+
+          {/* Interactive Mascot Card */}
+          <div 
+            onClick={handleMascotClick}
+            className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-5 shadow-[0_4px_0_0_#E5E5E5] hover:-translate-y-2 hover:shadow-[0_8px_0_0_#E5E5E5] active:translate-y-0 active:shadow-[0_2px_0_0_#E5E5E5] transition-all duration-300 group cursor-pointer overflow-hidden relative select-none"
+          >
+            <div className="absolute top-2 right-2 bg-[#E8F9DB] text-[#2B6C00] text-[9px] font-extrabold px-2 py-0.5 rounded-md border border-[#B7EB8F]">
+              MASCOT
+            </div>
+            <div className="relative w-full h-44 rounded-xl overflow-hidden mb-3 border border-[#E5E5E5] bg-[#FFF9E0]">
+              <video 
+                src="/assets/mascot_video.mp4" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            </div>
+            <h3 className="font-extrabold text-[#1A1C1C] flex items-center gap-1.5 mb-1.5">
+              <span>🐿️</span> Scratten
+            </h3>
+            <div className="relative bg-[#FAFAF9] border-2 border-[#E5E5E5] p-3 rounded-xl">
+              {/* Talk bubble arrow tail */}
+              <div className="absolute top-[-7px] left-5 w-3 h-3 bg-[#FAFAF9] border-t-2 border-l-2 border-[#E5E5E5] rotate-45" />
+              <p className="text-xs font-bold text-[#5F6A59] leading-relaxed">
+                {mascotQuote}
+              </p>
+            </div>
+          </div>
+
+          {/* Weekly Leaderboard */}
+          <section className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-5 shadow-[0_4px_0_0_#E5E5E5]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-extrabold text-[#1A1C1C] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[#FBB724]">workspace_premium</span>
+                Weekly Leaderboard
+              </h3>
+              <span className="px-2 py-0.5 bg-[#FFF9E0] text-[#755B00] rounded-lg font-bold text-[10px] uppercase border border-[#FFE894]">
+                Live
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {displayLeaderboard.length === 0 ? (
+                <div className="py-6 text-center text-[#5F6A59] flex flex-col items-center gap-2">
+                  <span className="text-3xl">🏆</span>
+                  <p className="font-bold text-xs">No entries yet this week.</p>
+                  <p className="text-[10px] text-[#5F6A59]/80">Complete a session to appear here!</p>
+                </div>
+              ) : (
+                displayLeaderboard.map((entry: any, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-5 text-center font-extrabold text-sm ${
+                      i === 0 ? 'text-[#FBB724]' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-400' : 'text-[#5F6A59]'
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-[#E5E5E5] flex-shrink-0 flex items-center justify-center font-bold text-xs text-[#5F6A59] uppercase border-2 border-white">
+                      {entry.username?.charAt(0) || 'A'}
+                    </div>
+                    <div className="flex-1 truncate text-xs font-bold text-[#1A1C1C]">{entry.username || 'Anonymous'}</div>
+                    <div className="text-xs font-extrabold text-[#58CC02]">
+                      {entry.weekly_xp?.toLocaleString() || entry.points?.toLocaleString() || 0} XP
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Quick Actions */}
+          <section className="bg-white border-2 border-[#E5E5E5] rounded-2xl p-5 shadow-[0_4px_0_0_#E5E5E5]">
+            <h3 className="font-extrabold text-[#1A1C1C] mb-4 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[#58CC02]">bolt</span>
+              Quick Actions
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => router.push('/upload')}
+                className="btn-3d w-full px-4 py-3 bg-[#58CC02] border-b-4 border-[#2B6C00] text-white font-extrabold rounded-xl hover:bg-[#62e002] flex items-center gap-2 text-sm"
+              >
+                <span className="material-symbols-outlined text-sm font-bold">upload_file</span>
+                Upload New PDF
+              </button>
+              <button
+                onClick={() => router.push('/leaderboard')}
+                className="btn-3d w-full px-4 py-3 bg-white border-2 border-[#E5E5E5] border-b-4 text-[#5F6A59] font-extrabold rounded-xl hover:bg-[#FAFAF9] flex items-center gap-2 text-sm"
+              >
+                <span className="material-symbols-outlined text-sm font-bold">leaderboard</span>
+                Full Leaderboard
+              </button>
+              <button
+                onClick={() => router.push('/badges')}
+                className="btn-3d w-full px-4 py-3 bg-white border-2 border-[#E5E5E5] border-b-4 text-[#5F6A59] font-extrabold rounded-xl hover:bg-[#FAFAF9] flex items-center gap-2 text-sm"
+              >
+                <span className="material-symbols-outlined text-sm font-bold">military_tech</span>
+                My Badges
+              </button>
+              <button
+                onClick={() => router.push('/profile')}
+                className="btn-3d w-full px-4 py-3 bg-white border-2 border-[#E5E5E5] border-b-4 text-[#5F6A59] font-extrabold rounded-xl hover:bg-[#FAFAF9] flex items-center gap-2 text-sm"
+              >
+                <span className="material-symbols-outlined text-sm font-bold">manage_accounts</span>
+                My Profile
+              </button>
+            </div>
+          </section>
+
+          {/* Motivation Card */}
+          <section className="bg-gradient-to-br from-[#58CC02] to-[#2B6C00] border-2 border-[#2B6C00] rounded-2xl p-5 shadow-[0_4px_0_0_#1a4200]">
+            <p className="text-white font-extrabold text-sm mb-1">💡 Daily Tip</p>
+            <p className="text-white/90 text-xs font-semibold leading-relaxed">
+              Reading aloud improves retention by up to 50% compared to silent reading. Try it for your next passage!
+            </p>
+          </section>
+        </div>
+      </div>
+    </AppShell>
   );
 }

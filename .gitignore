@@ -17,3 +17,6 @@ Thumbs.db
 .env.*.local
 retrieve/.env.local
 retrieve/.env.*.local
+
+# Developer workspace settings
+.vscode/

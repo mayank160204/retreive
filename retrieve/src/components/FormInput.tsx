@@ -1,4 +1,4 @@
-// Form input component with gamified premium styling
+// Form input component — VaultFlow/Duolingo-style matching the dashboard
 'use client';
 
 import React from 'react';
@@ -29,42 +29,38 @@ export function FormInput({
   rightElement,
 }: FormInputProps) {
   return (
-    <div className="space-y-xs w-full">
-      <div className="flex justify-between items-center ml-xs">
+    <div className="w-full">
+      {/* Label row */}
+      <div className="flex justify-between items-center mb-1.5">
         <label
           htmlFor={name}
-          className="text-label-bold font-label-bold text-on-surface"
+          className="text-xs font-extrabold uppercase tracking-wider text-[#5F6A59]"
         >
           {label}
-          {required && <span className="text-error ml-1">*</span>}
+          {required && <span className="text-[#BA1A1A] ml-1">*</span>}
         </label>
         {rightElement && <div>{rightElement}</div>}
       </div>
 
-      <div className="relative">
-        <input
-          id={name}
-          type={type}
-          name={name}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          required={required}
-          className={`input-gamified w-full h-[56px] px-md rounded-xl border-2 transition-all focus:scale-[1.01] bg-surface-container-lowest
-            ${
-              error
-                ? 'border-error text-error focus:ring-0 focus:border-error focus:bg-error-container/10'
-                : 'border-surface-container-high focus:border-secondary focus:ring-0 text-on-surface placeholder:text-outline-variant'
-            }
-            font-body-md text-body-md
-          `}
-        />
-      </div>
+      {/* Input */}
+      <input
+        id={name}
+        type={type}
+        name={name}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        required={required}
+        className={`w-full border-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors outline-none focus:border-[#58CC02] bg-white text-[#1A1C1C] placeholder:text-[#A6A6A6] ${
+          error ? 'border-[#BA1A1A] bg-[#FFDAD6]/30' : 'border-[#E5E5E5]'
+        }`}
+      />
 
-      <div className={`validation-message font-label-bold text-[12px] px-base text-error ${error ? 'show' : ''}`}>
-        {error}
-      </div>
+      {/* Error message */}
+      {error && (
+        <p className="mt-1 text-xs font-bold text-[#BA1A1A]">⚠️ {error}</p>
+      )}
     </div>
   );
 }

@@ -5,15 +5,31 @@ export interface User {
   email: string;
   name: string;
   avatar_url: string | null;
-  created_at: Date;
+  avatarUrl?: string | null;
+  created_at: any;
+  createdAt?: any;
   tier: 'free' | 'unlimited';
   subscription_id: string | null;
+  subscriptionId?: string | null;
   subscription_status: 'active' | 'canceled' | 'past_due' | null;
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due' | null;
   total_xp: number;
+  totalXP?: number;
   level: number;
   current_streak: number;
+  currentStreak?: number;
   longest_streak: number;
+  longestStreak?: number;
   sessions_completed: number;
+  sessionsCompleted?: number;
+  average_accuracy?: number;
+  averageAccuracy?: number;
+  total_sessions?: number;
+  totalSessions?: number;
+  avgAccuracy?: number;
+  weeklyXP?: number;
+  weeklyXPResetDate?: string;
+  displayName?: string;
 }
 
 export interface Session {

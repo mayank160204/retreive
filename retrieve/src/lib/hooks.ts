@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useUserStats — Live Firestore hook for the authenticated user's profile & stats.
  *
@@ -5,10 +7,8 @@
  * when the user's XP, streak, level, or tier changes (e.g., after payment).
  */
 
-'use client';
-
 import { useState, useEffect } from 'react';
-import { onSnapshot, doc } from 'firebase/firestore';
+import { onSnapshot, doc, collection, query, orderBy, limit, QuerySnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { User, Session } from '@/types';
@@ -18,6 +18,11 @@ import { getUserSessions } from '@/lib/db';
 export interface UserStatsWithLevel extends User {
   levelInfo: LevelInfo;
   levelTitle: string;
+  total_sessions?: number;
+  average_accuracy?: number;
+  badges?: string[];
+  displayName?: string;
+  weeklyXP?: number;
 }
 
 export function useUserStats() {
@@ -27,53 +32,57 @@ export function useUserStats() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id || !db) {
+    if (!user?.id) {
       setLoading(false);
       return;
     }
 
-    // DEMO MODE BYPASS
-    if (user.id === 'demo-user') {
-      const levelInfo = getLevelInfo(user.total_xp || 840);
-      setStats({
-        ...user,
-        levelInfo,
-        levelTitle: getLevelTitle(levelInfo.currentLevel),
-      });
+    const firestore = db;
+    if (!firestore) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
-
-    // Subscribe to real-time updates on the user document
-    const userRef = doc(db, 'users', user.id);
-    const unsubscribe = onSnapshot(
-      userRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data() as User;
-          const levelInfo = getLevelInfo(data.total_xp || 0);
-          const levelTitle = getLevelTitle(levelInfo.currentLevel);
-
-          setStats({
-            ...data,
-            id: snapshot.id,
-            levelInfo,
-            levelTitle,
-          });
-        } else {
-          setStats(null);
-        }
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        console.error('useUserStats snapshot error:', err);
-        setError(err.message);
-        setLoading(false);
+    const userDocRef = doc(firestore, 'users', user.id);
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const totalWords = data.totalWordsRead || 0;
+        const levelInfo = getLevelInfo(totalWords);
+        
+        setStats({
+          ...user,
+          ...data,
+          id: user.id,
+          current_streak: data.currentStreak || data.current_streak || 0,
+          currentStreak: data.currentStreak || data.current_streak || 0,
+          longest_streak: data.longestStreak || data.longest_streak || 0,
+          longestStreak: data.longestStreak || data.longest_streak || 0,
+          sessions_completed: data.totalSessions || data.sessions_completed || 0,
+          sessionsCompleted: data.totalSessions || data.sessions_completed || 0,
+          total_sessions: data.totalSessions || data.total_sessions || 0,
+          totalSessions: data.totalSessions || data.total_sessions || 0,
+          average_accuracy: data.avgAccuracy || data.average_accuracy || 0,
+          averageAccuracy: data.avgAccuracy || data.average_accuracy || 0,
+          avgAccuracy: data.avgAccuracy || data.average_accuracy || 0,
+          total_xp: data.totalXP || data.total_xp || 0,
+          totalXP: data.totalXP || data.total_xp || 0,
+          level: data.level || 1,
+          tier: data.plan || data.tier || 'free',
+          levelInfo,
+          levelTitle: data.levelTitle || getLevelTitle(levelInfo.currentLevel),
+          displayName: data.displayName || data.name || user?.name || '',
+          weeklyXP: data.weeklyXP || 0,
+          weeklyXPResetDate: data.weeklyXPResetDate || '',
+        } as any);
       }
-    );
+      setLoading(false);
+    }, (err) => {
+      console.error('onSnapshot stats error:', err);
+      setError(err.message);
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, [user?.id]);
@@ -95,28 +104,9 @@ export function useRecentSessions(limitCount = 5) {
       return;
     }
 
-    // DEMO MODE BYPASS
-    if (user.id === 'demo-user') {
-      setSessions([
-        { id: '1', user_id: 'demo-user', pdf_id: 'Biochemistry_Chapter_3.pdf', passages: [], mcq_score: 0, status: 'completed', words_read: 850, time_duration_seconds: 300, xp_earned: 150, accuracy_percentage: 94, completed_at: new Date(Date.now() - 86400000) },
-        { id: '2', user_id: 'demo-user', pdf_id: 'Physics_Equations.pdf', passages: [], mcq_score: 0, status: 'completed', words_read: 420, time_duration_seconds: 180, xp_earned: 80, accuracy_percentage: 88, completed_at: new Date(Date.now() - 172800000) }
-      ]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    getUserSessions(user.id, limitCount)
-      .then((data) => {
-        setSessions(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [user?.id, limitCount]);
+    setSessions([]);
+    setLoading(false);
+  }, [user?.id]);
 
   return { sessions, loading, error };
 }
@@ -160,22 +150,50 @@ function getTimeUntilMidnight() {
 /**
  * useLeaderboard — Fetches the current week's leaderboard from the API.
  */
-export function useLeaderboard(type: 'weekly' | 'alltime' = 'weekly', limitCount = 10) {
-  const [entries, setEntries] = useState<unknown[]>([]);
+export function useLeaderboard(type: 'weekly' | 'alltime' = 'weekly', limitCount = 5) {
+  const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/leaderboard?type=${type}&limit=${limitCount}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setEntries(data.entries || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+    const firestore = db;
+    if (!firestore) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const q = query(
+      collection(firestore, 'leaderboard'),
+      orderBy('weeklyXP', 'desc'),
+      limit(limitCount)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+      const docs = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const username = data.displayName || data.username || 'Anonymous';
+        const points = data.weeklyXP || data.points || 0;
+        return {
+          id: doc.id,
+          user_id: doc.id,
+          username,
+          displayName: username,
+          points,
+          weekly_xp: points,
+          weeklyXP: points,
+          ...data
+        };
       });
+      setEntries(docs);
+      setLoading(false);
+    }, (err: FirestoreError) => {
+      console.error('onSnapshot leaderboard error:', err);
+      setError(err.message);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [type, limitCount]);
 
   return { entries, loading, error };

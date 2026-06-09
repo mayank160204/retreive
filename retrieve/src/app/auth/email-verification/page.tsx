@@ -1,157 +1,72 @@
-// Email verification page
+// Email verification instruction page — VaultFlow/Duolingo style
 'use client';
 
-import React, { useEffect, useMemo, useState, Suspense } from 'react';
-import { applyActionCode, sendEmailVerification } from 'firebase/auth';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AuthForm } from '@/components/AuthForm';
-import { ValidationMessage } from '@/components/ValidationMessage';
-import { useAuth } from '@/lib/auth-context';
-import { auth } from '@/lib/firebase';
-
-interface FormErrors {
-  form?: string;
-}
 
 function EmailVerificationContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
-  const [verificationCode, setVerificationCode] = useState('');
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [resendCountdown, setResendCountdown] = useState(0);
-
-  const actionCode = useMemo(() => searchParams.get('oobCode'), [searchParams]);
-
-  useEffect(() => {
-    if (resendCountdown > 0) {
-      const timer = setTimeout(() => {
-        setResendCountdown((count) => count - 1);
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [resendCountdown]);
-
-  useEffect(() => {
-    const verifyLink = async () => {
-      if (!actionCode || !auth) return;
-
-      try {
-        setIsLoading(true);
-        setErrors({});
-        await applyActionCode(auth, actionCode);
-        setSuccessMessage('Email verified successfully! Redirecting to sign in...');
-
-        setTimeout(() => {
-          router.push('/auth/signin');
-        }, 1500);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to verify email';
-        setErrors({ form: errorMessage });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void verifyLink();
-  }, [actionCode, router]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!verificationCode.trim() || verificationCode.length !== 6) {
-      setErrors({ form: 'Please enter a valid 6-digit verification code.' });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrors({});
-      setSuccessMessage('');
-      
-      // Simulate verification API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      setSuccessMessage('Email verified successfully! Redirecting to sign in...');
-      setTimeout(() => {
-        router.push('/auth/signin');
-      }, 1500);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Verification failed';
-      setErrors({ form: errorMessage });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendEmail = () => {
-    if (resendCountdown > 0 || isLoading) return;
-    setSuccessMessage('A new 6-digit verification code has been sent to your email.');
-    setResendCountdown(60);
-    setTimeout(() => setSuccessMessage(''), 5000);
-  };
+  const email = searchParams.get('email') || 'your email';
 
   return (
     <AuthForm
-      title="Verify Your Email"
-      subtitle={actionCode ? 'Verifying your email address…' : `Enter the 6-digit verification code sent to ${user?.email || 'your email'}`}
-      onSubmit={handleSubmit}
-      isLoading={isLoading}
-      submitButtonText={isLoading ? 'Verifying...' : 'Verify Code'}
+      title="Check Your Email 📬"
+      subtitle="Almost there — one quick step left."
+      onSubmit={(e) => e.preventDefault()}
+      isLoading={false}
+      submitButtonText=""
+      footer={
+        <Link
+          href="/auth/signin"
+          className="btn-3d w-full py-3.5 bg-[#58CC02] border-b-4 border-[#2B6C00] text-white font-extrabold rounded-2xl hover:bg-[#62e002] active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-sm font-bold">login</span>
+          Go to Login
+        </Link>
+      }
     >
-      {successMessage && <ValidationMessage message={successMessage} type="success" />}
-      {errors.form && <ValidationMessage message={errors.form} type="error" />}
-
-      <div className="space-y-md">
-        <div className="flex flex-col gap-sm">
-          <label className="text-sm font-semibold text-slate-300">6-Digit Verification Code</label>
-          <input
-            type="text"
-            maxLength={6}
-            value={verificationCode}
-            onChange={(e) => {
-              const val = e.target.value.replace(/[^0-9]/g, '');
-              setVerificationCode(val);
-              if (errors.form) setErrors({});
-            }}
-            placeholder="123456"
-            className="w-full text-center tracking-[1em] font-mono text-xl h-[56px] bg-[#111111] border-2 border-white/10 focus:border-[#00D97D] focus:ring-0 text-white rounded-xl outline-none transition-all"
-            required
-            disabled={isLoading || actionCode !== null}
-          />
+      {/* Icon */}
+      <div className="flex justify-center py-2">
+        <div className="w-20 h-20 rounded-full bg-[#E0F5FF] border-2 border-[#B3E5FF] flex items-center justify-center shadow-[0_4px_0_0_#B3E5FF]">
+          <span className="material-symbols-outlined text-[#006590] text-4xl font-bold">
+            mark_email_unread
+          </span>
         </div>
       </div>
 
-      <div className="text-center border-t border-white/10 pt-lg mt-md">
-        <p className="text-sm text-slate-400 mb-3">Didn't receive the code?</p>
-        <button
-          type="button"
-          onClick={handleResendEmail}
-          disabled={resendCountdown > 0 || isLoading || actionCode !== null}
-          className={`text-[#00D97D] hover:underline font-semibold transition-opacity ${
-            resendCountdown > 0 || isLoading || actionCode !== null ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend code'}
-        </button>
+      {/* Message */}
+      <div className="bg-[#E8F9DB] border-2 border-[#B7EB8F] rounded-2xl p-4 text-center shadow-[0_4px_0_0_#B7EB8F]">
+        <p className="text-sm font-bold text-[#2B6C00] leading-relaxed">
+          We have sent you a verification email to{' '}
+          <span className="font-extrabold text-[#1A1C1C] break-all">{email}</span>.
+          <br />
+          Please verify it and log in.
+        </p>
       </div>
 
-      <p className="text-center text-slate-400 text-sm mt-md">
-        <Link href="/auth/signin" className="text-[#00D97D] hover:underline font-semibold">
-          Back to sign in
-        </Link>
-      </p>
+      {/* Tips */}
+      <div className="bg-[#FFF9E0] border-2 border-[#FFE894] rounded-xl p-3">
+        <p className="text-xs font-bold text-[#755B00]">💡 Don't see it? Check your spam/junk folder.</p>
+      </div>
     </AuthForm>
   );
 }
 
 export default function EmailVerificationPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-dark-bg text-text-primary">Loading verification page...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+        <div className="text-center">
+          <svg className="w-12 h-12 animate-spin text-[#58CC02] mx-auto mb-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <p className="text-[#5F6A59] font-bold">Loading verification page...</p>
+        </div>
+      </div>
+    }>
       <EmailVerificationContent />
     </Suspense>
   );

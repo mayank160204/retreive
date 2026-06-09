@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import Mascot3D from '@/components/Mascot3D';
 
 export default function LandingPage() {
   const mascotRef = useRef<HTMLDivElement>(null);
@@ -51,124 +52,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 antialiased overflow-x-hidden">
-      <style jsx>{`
-        :root {
-          --spring-easing: cubic-bezier(0.34, 1.56, 0.64, 1);
-          --linear-out: cubic-bezier(0, 0, 0.2, 1);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .fade-up, .hover-card, .primary-btn, .secondary-btn, .mascot-float, .progress-fill {
-            transition: none !important;
-            animation: none !important;
-            transform: none !important;
-            opacity: 1 !important;
-          }
-        }
-
-        .primary-btn {
-          background-color: #58cc02;
-          box-shadow: 0 4px 0 0 #2b6c00;
-          transition: transform 0.2s var(--spring-easing), box-shadow 0.2s var(--spring-easing);
-        }
-        
-        .primary-btn:hover {
-          transform: scale(1.03);
-          box-shadow: 0 6px 0 0 #2b6c00;
-        }
-
-        .primary-btn:active {
-          transform: translateY(4px) scale(0.97);
-          box-shadow: 0 0 0 0 #2b6c00;
-        }
-
-        .secondary-btn {
-          background-color: #ffffff;
-          border: 2px solid #e3e2e2;
-          box-shadow: 0 4px 0 0 #e3e2e2;
-          transition: transform 0.2s var(--spring-easing), box-shadow 0.2s var(--spring-easing);
-        }
-
-        .secondary-btn:hover {
-          transform: scale(1.03);
-          box-shadow: 0 6px 0 0 #e3e2e2;
-        }
-
-        .secondary-btn:active {
-          transform: translateY(4px) scale(0.97);
-          box-shadow: 0 0 0 0 #e3e2e2;
-        }
-
-        .hover-card {
-          transition: transform 0.4s var(--spring-easing), box-shadow 0.4s var(--spring-easing), border-color 0.3s ease;
-        }
-
-        .hover-card:hover {
-          transform: translateY(-12px);
-          box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-          border-color: #58cc02;
-        }
-
-        .fade-up {
-          opacity: 0;
-          transform: translateY(30px);
-          transition: opacity 0.8s var(--linear-out), transform 0.8s var(--linear-out);
-        }
-
-        .fade-up.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        .delay-100 { transition-delay: 100ms; }
-        .delay-200 { transition-delay: 200ms; }
-        .delay-300 { transition-delay: 300ms; }
-
-        .mascot-float {
-          animation: float 6s ease-in-out infinite;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-
-        .progress-fill {
-          width: 0;
-          transition: width 1.5s cubic-bezier(0.65, 0, 0.35, 1);
-        }
-
-        .progress-fill.animate {
-          width: var(--target-width);
-        }
-
-        .nav-link {
-          position: relative;
-          transition: color 0.3s ease;
-        }
-
-        .nav-link::after {
-          content: '';
-          position: absolute;
-          bottom: -4px;
-          left: 0;
-          width: 0;
-          height: 2px;
-          background-color: #58cc02;
-          transition: width 0.3s var(--spring-easing);
-        }
-
-        .nav-link:hover::after {
-          width: 100%;
-        }
-      `}</style>
 
       {/* TopNavBar */}
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <nav className="flex justify-between items-center h-20 px-4 md:px-6 max-w-7xl mx-auto">
-          <div className="text-2xl font-extrabold text-green-500 cursor-pointer hover:opacity-80 transition-opacity">
+          <Link href="/" className="text-2xl font-extrabold text-green-500 cursor-pointer hover:opacity-80 transition-opacity">
             RETREIVE
-          </div>
+          </Link>
           <div className="hidden md:flex gap-6 items-center">
             <a className="nav-link text-gray-600 font-medium hover:text-green-500" href="#science">
               Science
@@ -180,12 +70,12 @@ export default function LandingPage() {
               Testimonials
             </a>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Link href="/auth/signin" className="px-4 py-2 text-gray-900 hover:text-green-500 transition-colors font-medium">
               Log In
             </Link>
-            <Link href="/auth/signup" className="primary-btn px-6 py-3 rounded-xl font-bold text-white uppercase tracking-wider">
-              Get Started
+            <Link href="/auth/signup" className="bg-accent-green border-b-4 border-accent-green-hover text-white hover:opacity-90 active:translate-y-[2px] active:border-b-2 px-5 py-2.5 rounded-xl font-bold uppercase tracking-wider transition-all text-xs">
+              Sign Up
             </Link>
           </div>
         </nav>
@@ -201,22 +91,18 @@ export default function LandingPage() {
             Stop passive reading. Upload your study PDFs and master MCAT concepts by speaking them aloud with our intelligent AI coach.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/auth/signup" className="primary-btn px-8 py-4 rounded-xl text-white font-bold uppercase tracking-widest text-center">
+            <Link href="/auth/signup" className="bg-accent-green border-b-4 border-accent-green-hover text-white hover:opacity-90 active:translate-y-1 active:border-b-0 px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-center transition-all inline-block">
               Start Free Trial
             </Link>
-            <Link href="/auth/signin" className="secondary-btn px-8 py-4 rounded-xl text-gray-600 font-bold uppercase tracking-widest text-center">
+            <Link href="/auth/signin" className="bg-white border-2 border-[#e3e2e2] border-b-4 text-gray-600 hover:scale-105 active:translate-y-1 active:border-b-2 px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-center transition-all inline-block">
               Returning User
             </Link>
           </div>
         </div>
         <div className="order-1 md:order-2 flex justify-center fade-up delay-100">
           <div className="relative w-full max-w-md aspect-square flex items-center justify-center">
-            <div ref={mascotRef} className="mascot-float w-full h-full">
-              <img
-                alt="Mascot Celebrating"
-                className="w-full h-full object-contain drop-shadow-2xl"
-                src="https://lh3.googleusercontent.com/aida/ADBb0ugjwJWgWB7sBrXY5WSwAbvVekEyBuxlUqoKlPSHRjW-3ieGsaFlUpmpSxO453frBmkobK3Hr5XRWlukleiRpwbu4YHrxdWR2_Ia4akgXt0-J2-_fTFN4ubbldKw4p8TsPqtnw0B3KH0o6HKQX-xGooGMB-Yi1o6ctvsCGfURG64OLc6UeUXWP_200zdpMUcwcJ6id3jXBb-QylxS_Uxcc3YIUM_PMRq4qpT0M6xD1qEsHa8GcWNrxGuQ_-d"
-              />
+            <div ref={mascotRef} className="mascot-float w-full h-full relative">
+              <Mascot3D emotion="celebrating" className="w-full h-full absolute inset-0" />
             </div>
             <div className="absolute -z-10 w-[120%] h-[120%] bg-green-500/10 rounded-full blur-3xl"></div>
           </div>
@@ -253,14 +139,17 @@ export default function LandingPage() {
       {/* Solution/Science Section */}
       <section className="py-20 px-4 max-w-7xl mx-auto overflow-hidden" id="science">
         <div className="grid md:grid-cols-2 gap-20 items-center">
-          <div className="fade-up">
-            <div className="relative group">
-              <img
-                alt="High-tech glowing brain"
-                className="w-full h-auto rounded-xl drop-shadow-xl group-hover:scale-105 transition-transform duration-500"
-                src="https://lh3.googleusercontent.com/aida/ADBb0uj3GgKs2_A4EUI4coepLXBgLSHSRYW1dfAeTf7icTZZXRoidNQu9Q97UOvBsaM6-tHxplh9PFNCmrziG9mio0Z7pvfbnsCmqwtXQXx0ZawaXJ_9LOErIvAfPQ_2Ee5ixIT2uJ4-ZmciMz94H3T3Qx3lajv3w10nqmt98VWHHl044NsFptkfnsDWLrVuhCASfL-sJQfyA0FVao7HKlhH-W9XJzPwLuT8nnK9b_xcW5v-PFhThBRuqQPqKO3y"
+          <div className="fade-up flex justify-center">
+            <div className="relative group cursor-pointer max-w-sm w-full">
+              <video
+                className="w-full max-h-[380px] object-cover rounded-3xl border-4 border-[#E5E5E5] shadow-[0_8px_0_0_#E5E5E5] group-hover:-translate-y-3 group-hover:shadow-[0_16px_0_0_#E5E5E5] active:translate-y-0 active:shadow-[0_4px_0_0_#E5E5E5] transition-all duration-300"
+                src="/assets/mascot_video.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
               />
-              <div className="absolute -inset-4 bg-green-500/20 blur-2xl -z-10 group-hover:bg-green-500/30 transition-all"></div>
+              <div className="absolute -inset-4 bg-green-500/10 blur-2xl -z-10 group-hover:bg-green-500/25 transition-all rounded-3xl"></div>
             </div>
           </div>
           <div className="fade-up delay-200">
@@ -442,7 +331,7 @@ export default function LandingPage() {
         <div className="fade-up max-w-4xl mx-auto py-20 px-8 bg-green-500/5 rounded-xl border-4 border-dashed border-green-500/20 hover:bg-green-500/10 transition-colors duration-500">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">Ready to study smarter?</h2>
           <p className="text-lg text-gray-600 mb-8">Join 10,000+ medical students who are crushing the MCAT using their voice.</p>
-          <Link href="/auth/signup" className="primary-btn px-8 py-5 rounded-xl text-white font-bold text-xl uppercase tracking-widest inline-block">
+          <Link href="/auth/signup" className="bg-accent-green border-b-4 border-accent-green-hover text-white hover:opacity-90 active:translate-y-1 active:border-b-0 px-8 py-5 rounded-xl font-bold text-xl uppercase tracking-widest inline-block transition-all shadow-lg">
             Get Started for Free
           </Link>
         </div>

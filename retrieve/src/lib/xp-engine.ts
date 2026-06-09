@@ -78,168 +78,140 @@ function getStreakMultiplier(streak: number): number {
 
 // ─── XP Calculation ──────────────────────────────────────────────────────────
 
-/**
- * Calculate XP earned for a completed study session.
- * Returns a detailed breakdown with reasons for the UI to display.
- */
-export function calculateSessionXP(stats: SessionStats): XPBreakdown {
+export function calculateSessionXP(stats: {
+  wordsRead: number;
+  accuracyPercent: number;
+  mcqAccuracy: number;
+  currentStreak: number;
+}): XPBreakdown {
   const reasons: string[] = [];
+  const baseXP = stats.wordsRead;
+  reasons.push(`+${baseXP} XP for words read`);
 
-  // 1. Base XP: words read
-  const baseXP = Math.floor(stats.wordsRead * XP_PER_WORD);
-  reasons.push(`+${baseXP} XP for ${stats.wordsRead} words read`);
-
-  // 2. Accuracy Bonus: scales from 0% at 60% accuracy to 50% at 100% accuracy
   let accuracyBonus = 0;
-  if (stats.accuracyPercent >= ACCURACY_THRESHOLD) {
-    const normalizedAccuracy =
-      (stats.accuracyPercent - ACCURACY_THRESHOLD) / (100 - ACCURACY_THRESHOLD);
-    const bonusRate = normalizedAccuracy * ACCURACY_BONUS_MAX;
-    accuracyBonus = Math.floor(baseXP * bonusRate);
-    if (accuracyBonus > 0) {
-      reasons.push(
-        `+${accuracyBonus} XP accuracy bonus (${stats.accuracyPercent.toFixed(0)}% accuracy)`
-      );
-    }
+  if (stats.accuracyPercent >= 98) {
+    accuracyBonus = 15;
+    reasons.push(`+15 XP accuracy bonus (≥ 98% accuracy)`);
+  } else if (stats.accuracyPercent >= 95) {
+    accuracyBonus = 10;
+    reasons.push(`+10 XP accuracy bonus (≥ 95% accuracy)`);
+  } else if (stats.accuracyPercent >= 90) {
+    accuracyBonus = 5;
+    reasons.push(`+5 XP accuracy bonus (≥ 90% accuracy)`);
   }
 
-  // 3. Speed Bonus: reward reading at a natural pace (~150 wpm)
-  let speedBonus = 0;
-  if (stats.durationSeconds > 0 && stats.wordsRead > 0) {
-    const actualWpm = (stats.wordsRead / stats.durationSeconds) * 60;
-    const wpmDiff = Math.abs(actualWpm - TARGET_WPM);
-
-    if (wpmDiff <= SPEED_TOLERANCE_WPM) {
-      // Perfect pace: full bonus
-      speedBonus = SPEED_BONUS_MAX;
-    } else if (wpmDiff <= SPEED_TOLERANCE_WPM * 2) {
-      // Decent pace: partial bonus
-      speedBonus = Math.floor(
-        SPEED_BONUS_MAX * (1 - (wpmDiff - SPEED_TOLERANCE_WPM) / SPEED_TOLERANCE_WPM)
-      );
-    }
-
-    if (speedBonus > 0) {
-      const wpm = Math.round(actualWpm);
-      reasons.push(`+${speedBonus} XP reading pace bonus (${wpm} wpm)`);
-    }
+  const mcqBonus = stats.mcqAccuracy >= 80 ? 10 : 0;
+  if (mcqBonus > 0) {
+    reasons.push(`+10 XP MCQ bonus (≥ 80% MCQ score)`);
   }
 
-  // 4. MCQ Bonus
-  const mcqBonus =
-    stats.mcqCorrect * MCQ_CORRECT_BONUS - stats.mcqIncorrect * MCQ_INCORRECT_PENALTY;
-
-  if (stats.mcqCorrect > 0) {
-    reasons.push(`+${stats.mcqCorrect * MCQ_CORRECT_BONUS} XP for ${stats.mcqCorrect} correct MCQ(s)`);
-  }
-  if (stats.mcqIncorrect > 0) {
-    reasons.push(`-${stats.mcqIncorrect * MCQ_INCORRECT_PENALTY} XP for ${stats.mcqIncorrect} incorrect MCQ(s)`);
+  const streakBonus = Math.floor(stats.currentStreak / 7);
+  if (streakBonus > 0) {
+    reasons.push(`+${streakBonus} XP streak bonus (${stats.currentStreak}-day streak)`);
   }
 
-  // 5. First session bonus
-  const firstSessionBonus = stats.isFirstSessionToday ? FIRST_SESSION_BONUS : 0;
-  if (firstSessionBonus > 0) {
-    reasons.push(`+${FIRST_SESSION_BONUS} XP first session of the day! 🔥`);
-  }
-
-  // 6. Pre-multiplier subtotal
-  const preMultiplierXP = Math.max(0, baseXP + accuracyBonus + speedBonus + mcqBonus);
-
-  // 7. Streak multiplier
-  const streakMultiplier = getStreakMultiplier(stats.currentStreak);
-  if (streakMultiplier > 1.0 && stats.currentStreak > 0) {
-    reasons.push(
-      `×${streakMultiplier.toFixed(1)} streak multiplier (${stats.currentStreak} day streak 🔥)`
-    );
-  }
-
-  // 8. Final total
-  const multipliedXP = Math.floor(preMultiplierXP * streakMultiplier);
-  const totalXP = multipliedXP + firstSessionBonus;
+  const totalXP = baseXP + accuracyBonus + mcqBonus + streakBonus;
 
   return {
     baseXP,
     accuracyBonus,
-    speedBonus,
-    mcqBonus: Math.max(0, mcqBonus),
-    streakMultiplier,
-    firstSessionBonus,
-    totalXP: Math.max(0, totalXP),
-    reasons,
+    speedBonus: 0,
+    mcqBonus,
+    streakMultiplier: 1.0,
+    firstSessionBonus: 0,
+    totalXP,
+    reasons
   };
 }
 
 // ─── Level System ─────────────────────────────────────────────────────────────
 
-/**
- * Calculate the XP required to reach a given level from level 1.
- * Uses scaling formula: sum of (BASE_XP_PER_LEVEL * level^1.2) for each level
- */
 export function getXPRequiredForLevel(level: number): number {
-  if (level <= 1) return 0;
-  let totalXP = 0;
-  for (let l = 1; l < level; l++) {
-    totalXP += Math.floor(BASE_XP_PER_LEVEL * Math.pow(l, 1.2));
+  switch (level) {
+    case 1: return 0;
+    case 2: return 5000;
+    case 3: return 20000;
+    case 4: return 50000;
+    case 5: return 100000;
+    case 6: return 250000;
+    default: return 250000;
   }
-  return totalXP;
 }
 
-/**
- * Get the XP threshold to go from level N to level N+1.
- */
 export function getXPPerLevel(level: number): number {
-  return Math.floor(BASE_XP_PER_LEVEL * Math.pow(level, 1.2));
+  switch (level) {
+    case 1: return 5000;
+    case 2: return 15000; // 20k - 5k
+    case 3: return 30000; // 50k - 20k
+    case 4: return 50000; // 100k - 50k
+    case 5: return 150000; // 250k - 100k
+    default: return 1;
+  }
 }
 
-/**
- * Calculate current level and progress from total cumulative XP.
- */
-export function getLevelInfo(totalXP: number): LevelInfo {
-  if (totalXP < 0) totalXP = 0;
+export function getLevelInfo(totalWordsRead: number): LevelInfo {
+  if (totalWordsRead < 0) totalWordsRead = 0;
 
   let level = 1;
-  let xpConsumed = 0;
+  let progressPercent = 0;
+  let xpToNextLevel = 0;
+  let xpForCurrentLevel = 5000;
 
-  // Walk up levels until we can't fill the next one
-  while (true) {
-    const xpForThisLevel = getXPPerLevel(level);
-    if (xpConsumed + xpForThisLevel > totalXP) {
-      break;
-    }
-    xpConsumed += xpForThisLevel;
-    level++;
+  if (totalWordsRead < 5000) {
+    level = 1;
+    xpForCurrentLevel = 5000;
+    progressPercent = Math.min(100, Math.floor((totalWordsRead / xpForCurrentLevel) * 100));
+    xpToNextLevel = 5000 - totalWordsRead;
+  } else if (totalWordsRead < 20000) {
+    level = 2;
+    xpForCurrentLevel = 15000;
+    const progress = totalWordsRead - 5000;
+    progressPercent = Math.min(100, Math.floor((progress / xpForCurrentLevel) * 100));
+    xpToNextLevel = 20000 - totalWordsRead;
+  } else if (totalWordsRead < 50000) {
+    level = 3;
+    xpForCurrentLevel = 30000;
+    const progress = totalWordsRead - 20000;
+    progressPercent = Math.min(100, Math.floor((progress / xpForCurrentLevel) * 100));
+    xpToNextLevel = 50000 - totalWordsRead;
+  } else if (totalWordsRead < 100000) {
+    level = 4;
+    xpForCurrentLevel = 50000;
+    const progress = totalWordsRead - 50000;
+    progressPercent = Math.min(100, Math.floor((progress / xpForCurrentLevel) * 100));
+    xpToNextLevel = 100000 - totalWordsRead;
+  } else if (totalWordsRead < 250000) {
+    level = 5;
+    xpForCurrentLevel = 150000;
+    const progress = totalWordsRead - 100000;
+    progressPercent = Math.min(100, Math.floor((progress / xpForCurrentLevel) * 100));
+    xpToNextLevel = 250000 - totalWordsRead;
+  } else {
+    level = 6;
+    xpForCurrentLevel = 1;
+    progressPercent = 100;
+    xpToNextLevel = 0;
   }
-
-  const xpForCurrentLevel = getXPPerLevel(level);
-  const xpIntoCurrentLevel = totalXP - xpConsumed;
-  const progressPercent = Math.min(
-    100,
-    Math.floor((xpIntoCurrentLevel / xpForCurrentLevel) * 100)
-  );
 
   return {
     currentLevel: level,
-    currentXP: xpIntoCurrentLevel,
-    xpToNextLevel: xpForCurrentLevel - xpIntoCurrentLevel,
+    currentXP: totalWordsRead,
+    xpToNextLevel,
     xpForCurrentLevel,
     progressPercent,
   };
 }
 
-/**
- * Human-readable level title based on level number.
- */
 export function getLevelTitle(level: number): string {
-  if (level >= 50) return 'MCAT Legend';
-  if (level >= 40) return 'Grand Medic';
-  if (level >= 30) return 'Senior Medic';
-  if (level >= 20) return 'Elite Medic';
-  if (level >= 15) return 'Advanced Medic';
-  if (level >= 10) return 'Medic';
-  if (level >= 7) return 'Resident';
-  if (level >= 5) return 'Intern';
-  if (level >= 3) return 'Pre-Med';
-  return 'Rookie';
+  switch (level) {
+    case 1: return 'Rookie';
+    case 2: return 'Emerging Scholar';
+    case 3: return 'Proficient Reader';
+    case 4: return 'Advanced Analyst';
+    case 5: return 'Master Comprehensionist';
+    case 6: return 'Elite Strategist';
+    default: return 'Elite Strategist';
+  }
 }
 
 // ─── Badge Trigger Checks ─────────────────────────────────────────────────────
