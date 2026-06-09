@@ -13,11 +13,44 @@ import {
   signInWithPopup,
   signInWithPhoneNumber,
   RecaptchaVerifier,
+  updateProfile,
   type ConfirmationResult,
 } from 'firebase/auth';
-import { auth, ensureFirebaseAuthAvailable, isFirebaseConfigured } from './firebase';
-import { getUserDocument, createUserDocument } from './db';
+import { auth, ensureFirebaseAuthAvailable, firebaseEnabled } from './firebase';
 import { User } from '@/types';
+
+const mapFirebaseUserToUser = (firebaseUser: any): User => {
+  return {
+    id: firebaseUser.uid,
+    email: firebaseUser.email || '',
+    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+    avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.displayName || 'User'}`,
+    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.displayName || 'User'}`,
+    created_at: new Date(),
+    createdAt: new Date(),
+    tier: 'free',
+    subscription_id: null,
+    subscriptionId: null,
+    subscription_status: null,
+    subscriptionStatus: null,
+    total_xp: 0,
+    totalXP: 0,
+    level: 1,
+    current_streak: 0,
+    currentStreak: 0,
+    longest_streak: 0,
+    longestStreak: 0,
+    sessions_completed: 0,
+    sessionsCompleted: 0,
+    total_sessions: 0,
+    totalSessions: 0,
+    average_accuracy: 0,
+    averageAccuracy: 0,
+    avgAccuracy: 0,
+    weeklyXP: 0,
+    weeklyXPResetDate: '',
+  };
+};
 
 interface AuthContextType {
   user: User | null;
@@ -36,7 +69,33 @@ interface AuthContextType {
   // General
   signout: () => Promise<void>;
   clearError: () => void;
+  refreshUser: () => Promise<void>;
 }
+
+const setSessionCookie = async (token: string) => {
+  try {
+    const res = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: token }),
+    });
+    if (!res.ok) {
+      console.error('Failed to set session cookie. Status:', res.status);
+      const errText = await res.text();
+      console.error('Session API response:', errText);
+    }
+  } catch (err) {
+    console.error('Failed to set session cookie:', err);
+  }
+};
+
+const clearSessionCookie = async () => {
+  try {
+    await fetch('/api/auth/session', { method: 'DELETE' });
+  } catch (err) {
+    console.error('Failed to clear session cookie:', err);
+  }
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -48,7 +107,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
 
   // Listen for auth state changes
   useEffect(() => {
-    if (!isFirebaseConfigured || !auth) {
+    if (!firebaseEnabled || !auth) {
       setLoading(false);
       setError('Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* env variables to enable authentication.');
       return;
@@ -57,45 +116,50 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // Fetch user document from Firestore
-          const userData = await getUserDocument(firebaseUser.uid);
-          if (userData) {
-            setUser(userData);
-            // Write session cookie for middleware route protection
-            const token = await firebaseUser.getIdToken();
-            document.cookie = `__session=${token}; path=/; max-age=86400`;
+          const isDev = process.env.NODE_ENV === 'development';
+          const isVerifiedOrSocial = firebaseUser.emailVerified || isDev || 
+            firebaseUser.providerData?.some((p: any) => 
+              p.providerId === 'google.com' || p.providerId === 'phone'
+            );
+
+          if (!isVerifiedOrSocial) {
+            const firebaseAuth = ensureFirebaseAuthAvailable(auth);
+            await signOut(firebaseAuth);
+            setUser(null);
+            await clearSessionCookie();
           } else {
-            // Create user document if it doesn't exist
-            const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
-            await createUserDocument(firebaseUser.uid, firebaseUser.email || '', name);
-            const newUserData = await getUserDocument(firebaseUser.uid);
-            if (newUserData) {
-              setUser(newUserData);
-              const token = await firebaseUser.getIdToken();
-              document.cookie = `__session=${token}; path=/; max-age=86400`;
-            }
+            const mappedUser = mapFirebaseUserToUser(firebaseUser);
+            setUser(mappedUser);
+            
+            // Fetch Firestore profile asynchronously so a hanging Firestore connection
+            // does NOT block the auth loading state and leave the UI hung on the spinner.
+            import('@/lib/db')
+              .then(({ getUserDocument }) => {
+                getUserDocument(firebaseUser.uid)
+                  .then((dbUser) => {
+                    if (dbUser) {
+                      setUser((prev) => (prev ? { ...prev, ...dbUser } : dbUser));
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('Failed to load user document from Firestore:', err);
+                  });
+              })
+              .catch((err) => {
+                console.error('Failed to import db module:', err);
+              });
+            
+            const token = await firebaseUser.getIdToken();
+            await setSessionCookie(token);
           }
         } else {
-          // Check if there is a mock session cookie
-          const cookies = typeof document !== 'undefined' ? document.cookie : '';
-          const hasMockSession = cookies.includes('__session=mock-token-');
-          if (hasMockSession) {
-            // Restore demo user to prevent redirect loops
-            setUser({
-              id: 'demo-user',
-              email: 'demo@retreive.com',
-              name: 'Demo User',
-              tier: 'free',
-              total_xp: 840,
-              current_streak: 12,
-            } as User);
-          } else {
-            setUser(null);
-            document.cookie = `__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-          }
+          setUser(null);
+          await clearSessionCookie();
         }
       } catch (err) {
         console.error('Auth state change error:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Database connection error: ${message}`);
       } finally {
         setLoading(false);
       }
@@ -103,6 +167,19 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
 
     return () => unsubscribe();
   }, []);
+
+  const refreshUser = async () => {
+    if (!auth?.currentUser) return;
+    try {
+      const { getUserDocument } = await import('@/lib/db');
+      const dbUser = await getUserDocument(auth.currentUser.uid);
+      if (dbUser) {
+        setUser(prev => prev ? { ...prev, ...dbUser } : dbUser);
+      }
+    } catch (err) {
+      console.error('Failed to refresh user profile:', err);
+    }
+  };
 
   // Initialize reCAPTCHA verifier for phone auth (browser only)
   useEffect(() => {
@@ -132,32 +209,38 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       setError(null);
       const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
 
-      // Create user document in Firestore
-      await createUserDocument(userCredential.user.uid, email, name);
+      // Update Firebase Auth profile
+      await updateProfile(userCredential.user, { displayName: name });
 
-      // Fetch and set user state
-      const userData = await getUserDocument(userCredential.user.uid);
-      if (userData) {
-        setUser(userData);
+      const isDev = process.env.NODE_ENV === 'development';
+      if (isDev) {
+        const mappedUser = mapFirebaseUserToUser(userCredential.user);
+        let dbUser = null;
+        try {
+          const { getUserDocument, createUserDocument } = await import('@/lib/db');
+          dbUser = await getUserDocument(userCredential.user.uid);
+          if (!dbUser) {
+            await createUserDocument(userCredential.user.uid, mappedUser.email, name);
+            dbUser = await getUserDocument(userCredential.user.uid);
+          }
+        } catch (dbErr) {
+          console.warn('Failed to load/create Firestore document during signup:', dbErr);
+        }
+        const finalUser = dbUser ? { ...mappedUser, ...dbUser } : mappedUser;
+        setUser(finalUser);
+        const token = await userCredential.user.getIdToken();
+        await setSessionCookie(token);
+      } else {
+        // Send verification email
+        const { sendEmailVerification } = await import('firebase/auth');
+        await sendEmailVerification(userCredential.user);
+
+        // DO NOT sign them in automatically - sign them out immediately
+        await signOut(firebaseAuth);
+        setUser(null);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      
-      // DEMO MODE FALLBACK
-      if (message.includes('api-key-not-valid') || message.includes('invalid-api-key') || message.includes('not configured')) {
-        console.warn('[MOCK AUTH] Falling back to demo session due to Firebase config error.');
-        document.cookie = `__session=mock-token-${Date.now()}; path=/; max-age=86400`;
-        setUser({
-          id: 'demo-user',
-          email,
-          name: name || email.split('@')[0],
-          tier: 'free',
-          total_xp: 0,
-          current_streak: 0,
-        } as User);
-        return;
-      }
-
       setError(message);
       throw err;
     }
@@ -168,33 +251,46 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       const firebaseAuth = ensureFirebaseAuthAvailable(auth);
       setError(null);
+      setLoading(true);
       const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
 
-      // Fetch and set user state
-      const userData = await getUserDocument(userCredential.user.uid);
-      if (userData) {
-        setUser(userData);
+      // Block unverified email users in production, but bypass in development
+      const isDev = process.env.NODE_ENV === 'development';
+      if (!userCredential.user.emailVerified && !isDev) {
+        await signOut(firebaseAuth);
+        setUser(null);
+        throw new Error('email-not-verified');
       }
+
+      const mappedUser = mapFirebaseUserToUser(userCredential.user);
+      
+      // Load user profile from DB synchronously before finishing signin
+      let dbUser = null;
+      try {
+        const { getUserDocument, createUserDocument } = await import('@/lib/db');
+        dbUser = await getUserDocument(userCredential.user.uid);
+        if (!dbUser) {
+          await createUserDocument(
+            userCredential.user.uid,
+            mappedUser.email,
+            mappedUser.name
+          );
+          dbUser = await getUserDocument(userCredential.user.uid);
+        }
+      } catch (dbErr) {
+        console.warn('Failed to load/create Firestore document during signin:', dbErr);
+      }
+      const finalUser = dbUser ? { ...mappedUser, ...dbUser } : mappedUser;
+      setUser(finalUser);
+
+      const token = await userCredential.user.getIdToken();
+      await setSessionCookie(token);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-
-      // DEMO MODE FALLBACK
-      if (message.includes('api-key-not-valid') || message.includes('invalid-api-key') || message.includes('not configured')) {
-        console.warn('[MOCK AUTH] Falling back to demo session due to Firebase config error.');
-        document.cookie = `__session=mock-token-${Date.now()}; path=/; max-age=86400`;
-        setUser({
-          id: 'demo-user',
-          email,
-          name: email.split('@')[0],
-          tier: 'free',
-          total_xp: 840,
-          current_streak: 12,
-        } as User);
-        return;
-      }
-
       setError(message);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -203,33 +299,52 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       const firebaseAuth = ensureFirebaseAuthAvailable(auth);
       setError(null);
+      setLoading(true);
       const googleProvider = new GoogleAuthProvider();
       googleProvider.addScope('profile');
       googleProvider.addScope('email');
 
-      const userCredential = await signInWithPopup(firebaseAuth, googleProvider);
-      const googleUser = userCredential.user;
+      let userCredential;
+      try {
+        userCredential = await signInWithPopup(firebaseAuth, googleProvider);
+      } catch (popupErr: any) {
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.message?.includes('popup-blocked')) {
+          console.warn('Popup blocked, falling back to signInWithRedirect');
+          const { signInWithRedirect } = await import('firebase/auth');
+          await signInWithRedirect(firebaseAuth, googleProvider);
+          return;
+        }
+        throw popupErr;
+      }
+      const mappedUser = mapFirebaseUserToUser(userCredential.user);
 
-      // Check if user exists, if not create document
-      let userData = await getUserDocument(googleUser.uid);
-      if (!userData) {
-        await createUserDocument(
-          googleUser.uid,
-          googleUser.email || '',
-          googleUser.displayName || googleUser.email?.split('@')[0] || 'User'
-        );
-        userData = await getUserDocument(googleUser.uid);
+      // Load user profile from DB synchronously before finishing signin
+      let dbUser = null;
+      try {
+        const { getUserDocument, createUserDocument } = await import('@/lib/db');
+        dbUser = await getUserDocument(userCredential.user.uid);
+        if (!dbUser) {
+          // If they are signing up via Google, create the document first
+          await createUserDocument(userCredential.user.uid, mappedUser.email, mappedUser.name);
+          dbUser = await getUserDocument(userCredential.user.uid);
+        }
+      } catch (dbErr) {
+        console.warn('Failed to load/create Firestore document during Google signin:', dbErr);
       }
 
-      if (userData) {
-        setUser(userData);
-      }
+      const finalUser = dbUser ? { ...mappedUser, ...dbUser } : mappedUser;
+      setUser(finalUser);
+
+      const token = await userCredential.user.getIdToken();
+      await setSessionCookie(token);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Google sign in failed';
       if (!message.includes('popup-blocked') && !message.includes('cancelled')) {
         setError(message);
       }
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -263,22 +378,8 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
     try {
       setError(null);
       const userCredential = await confirmationResult.confirm(otp);
-      const phoneUser = userCredential.user;
-
-      // Create user document if it doesn't exist
-      let userData = await getUserDocument(phoneUser.uid);
-      if (!userData) {
-        await createUserDocument(
-          phoneUser.uid,
-          phoneUser.email || phoneUser.phoneNumber || '',
-          phoneUser.displayName || 'User'
-        );
-        userData = await getUserDocument(phoneUser.uid);
-      }
-
-      if (userData) {
-        setUser(userData);
-      }
+      const mappedUser = mapFirebaseUserToUser(userCredential.user);
+      setUser(mappedUser);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Invalid OTP';
       setError(message);
@@ -302,10 +403,9 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
   // Sign Out
   const signout = async () => {
     try {
-      // Clear mock cookie if it exists
-      document.cookie = '__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      await clearSessionCookie();
       
-      if (auth && isFirebaseConfigured()) {
+      if (auth && firebaseEnabled) {
         await signOut(auth);
       }
       setUser(null);
@@ -336,6 +436,7 @@ export function AuthProvider({ children }: { readonly children: React.ReactNode 
       verifyPhoneOTP,
       signout,
       clearError,
+      refreshUser,
     }),
     [user, loading, error]
   );

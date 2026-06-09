@@ -22,7 +22,9 @@ const PROTECTED_PATHS = [
   '/upload',
   '/reader',
   '/quiz',
-  '/summary'
+  '/summary',
+  '/onboarding',
+  '/preview'
 ];
 
 // Auth-related pages — redirect already-authed users away
@@ -38,6 +40,7 @@ const PUBLIC_API_PATHS = [
   '/api/leaderboard',
   '/api/stripe/webhook',
   '/api/stripe/checkout', // Mock checkout is public
+  '/api/auth/session',
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -56,11 +59,60 @@ function isProtectedApiPath(pathname: string): boolean {
   return pathname.startsWith('/api/') && !isPublicApiPath(pathname);
 }
 
-function hasSessionCookie(request: NextRequest): boolean {
+function verifyFirebaseIdToken(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.warn('verifyFirebaseIdToken: token does not have 3 parts');
+      return false;
+    }
+    
+    let payloadStr = parts[1];
+    payloadStr = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = payloadStr.length % 4;
+    let padding = '';
+    if (pad) {
+      padding = '='.repeat(4 - pad);
+    }
+    const decoded = atob(payloadStr + padding);
+    const payload = JSON.parse(decoded);
+    
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'retreive-18614';
+    const now = Math.floor(Date.now() / 1000);
+    
+    if (payload.exp && payload.exp < now) {
+      console.warn(`verifyFirebaseIdToken: token expired. exp: ${payload.exp}, now: ${now}`);
+      return false;
+    }
+    if (payload.aud !== projectId) {
+      console.warn(`verifyFirebaseIdToken: project ID mismatch. aud: ${payload.aud}, expected: ${projectId}`);
+      return false;
+    }
+    if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
+      console.warn(`verifyFirebaseIdToken: issuer mismatch. iss: ${payload.iss}, expected: https://securetoken.google.com/${projectId}`);
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('verifyFirebaseIdToken error parsing token:', err);
+    return false;
+  }
+}
+
+function isAuthenticatedUser(request: NextRequest): boolean {
   const sessionCookie = request.cookies.get('__session')?.value;
   const authToken = request.cookies.get('auth_token')?.value;
   const authHeader = request.headers.get('Authorization');
-  return Boolean(sessionCookie || authToken || authHeader?.startsWith('Bearer '));
+  
+  let token = sessionCookie || authToken;
+  if (!token && authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  }
+  
+  if (!token) return false;
+  
+  return verifyFirebaseIdToken(token);
 }
 
 export function middleware(request: NextRequest) {
@@ -76,7 +128,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAuthenticated = hasSessionCookie(request);
+  const isAuthenticated = isAuthenticatedUser(request);
 
   // Protect non-public API routes
   if (isProtectedApiPath(pathname)) {
@@ -99,10 +151,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect already-authenticated users away from auth pages
+  // Redirect already-authenticated users away from auth pages (disabled to prevent cookie desync loops)
+  /*
   if (isAuthOnlyPath(pathname) && isAuthenticated) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
+  */
 
   return NextResponse.next();
 }
